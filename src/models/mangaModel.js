@@ -2,43 +2,26 @@ const mongoose = require('mongoose')
 
 const mangaSchema = new mongoose.Schema(
   {
-    title: { type: String, required: true, trim: true },
-    alternativeTitles: [String],
-    author: { type: String, default: 'Đang cập nhật' },
-    description: { type: String, default: '' },
-    coverImage: { type: String, default: '' },
-    genres: { type: [String], default: [] },
+    title: { type: String, required: true, maxlength: 255, trim: true },
+    description: { type: String, trim: true },
+    coverImageUrl: { type: String, maxlength: 255, trim: true },
+    viewCount: { type: Number, default: 0 },
+    likeCount: { type: Number, default: 0 },
     status: {
       type: String,
-      enum: ['ongoing', 'completed'],
+      enum: ['ongoing', 'completed', 'hiatus'],
       default: 'ongoing',
     },
-    views: { type: Number, default: 0 },
-    likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-
-    chapters: [
-      {
-        chapterNumber: { type: Number, required: true },
-        title: { type: String, required: true },
-        images: { type: [String], required: true },
-        createdAt: { type: Date, default: Date.now },
-
-        translator: {
-          user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-          name: { type: String, default: 'Ẩn danh' },
-          donate: {
-            qrImage: { type: String, default: '' },
-            bank: {
-              accountName: { type: String, default: '' },
-              accountNumber: { type: String, default: '' },
-              bankName: { type: String, default: '' },
-            },
-          },
-        },
-      },
-    ],
+    releaseDate: { type: Date },
+    author: { type: String, maxlength: 255, trim: true },
+    uploaderId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
   },
   { timestamps: true }
 )
+mangaSchema.index({ title: 'text', author: 1 })
 
 module.exports = mongoose.model('Manga', mangaSchema)
