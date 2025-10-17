@@ -20,7 +20,7 @@ const mangaSchema = new mongoose.Schema(
       required: true,
     },
   },
-  { timestamps: true }
+  { timestamps: true, versionKey: false }
 )
 mangaSchema.index({ title: 'text', author: 1 })
 

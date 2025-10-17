@@ -4,13 +4,6 @@ const userSchema = new mongoose.Schema(
   {
     fullName: { type: String, maxlength: 100, trim: true },
     avatar: { type: String, maxlength: 255, trim: true },
-    username: {
-      type: String,
-      maxlength: 50,
-      unique: true,
-      trim: true,
-      required: true,
-    },
     email: {
       type: String,
       maxlength: 100,
