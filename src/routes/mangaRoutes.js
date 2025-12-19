@@ -3,6 +3,7 @@ const router = express.Router()
 const {
   getAllMangas,
   getMangaById,
+  getTopViews,
   createManga,
   updateManga,
   deleteManga,
@@ -14,6 +15,7 @@ const {
 } = require('@/validators/mangaValidator')
 const validateRequest = require('@/middleware/validateRequest')
 
+router.get('/top-views', getTopViews)
 router.get('/', getAllMangas)
 router.get('/:id', getMangaById)
 router.post('/', validateRequest(createMangaValidator), createManga)

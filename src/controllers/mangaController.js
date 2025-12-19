@@ -19,6 +19,16 @@ exports.getMangaById = async (req, res, next) => {
   }
 }
 
+exports.getTopViews = async (req, res) => {
+  try {
+    const limit = req.query.limit
+    const mangas = await mangaService.getTopViews(limit)
+    res.json(mangas)
+  } catch (error) {
+    res.status(500).json({ message: error.message })
+  }
+}
+
 exports.createManga = async (req, res, next) => {
   try {
     const savedManga = await mangaService.createManga(req.body)
