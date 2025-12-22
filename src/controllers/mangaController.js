@@ -61,3 +61,37 @@ exports.deleteManga = async (req, res, next) => {
     next(err)
   }
 }
+
+exports.getLatestUpdatedMangas = async (req, res, next) => {
+  try {
+    const limit = req.query.limit || 10
+    const mangas = await mangaService.getLatestUpdatedMangas(limit)
+    res.json(mangas)
+  } catch (err) {
+    next(err)
+  }
+}
+
+exports.getAllMangasPaginated = async (req, res, next) => {
+  try {
+    const page = req.query.page || 1
+    const limit = req.query.limit || 20
+    const result = await mangaService.getAllMangasPaginated(page, limit)
+    res.json({
+      success: true,
+      ...result,
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+exports.getRandomMangas = async (req, res, next) => {
+  try {
+    const limit = Number(req.query.limit) || 5
+    const mangas = await mangaService.getRandomMangas(limit)
+    res.json(mangas)
+  } catch (err) {
+    next(err)
+  }
+}
