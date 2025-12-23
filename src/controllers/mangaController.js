@@ -85,3 +85,13 @@ exports.getAllMangasPaginated = async (req, res, next) => {
     next(err)
   }
 }
+
+exports.getRandomMangas = async (req, res, next) => {
+  try {
+    const limit = Number(req.query.limit) || 5
+    const mangas = await mangaService.getRandomMangas(limit)
+    res.json(mangas)
+  } catch (err) {
+    next(err)
+  }
+}

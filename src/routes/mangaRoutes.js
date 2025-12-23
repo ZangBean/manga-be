@@ -9,6 +9,7 @@ const {
   deleteManga,
   getLatestUpdatedMangas,
   getAllMangasPaginated,
+  getRandomMangas,
 } = require('@/controllers/mangaController')
 
 const {
@@ -19,11 +20,15 @@ const validateRequest = require('@/middleware/validateRequest')
 
 router.get('/top-views', getTopViews)
 router.get('/latest', getLatestUpdatedMangas)
+router.get('/random', getRandomMangas)
+router.get('/paginated', getAllMangasPaginated)
 router.get('/', getAllMangas)
 router.get('/:id', getMangaById)
-router.get('/paginated', getAllMangasPaginated)
+
 router.post('/', validateRequest(createMangaValidator), createManga)
+
 router.put('/:id', validateRequest(updateMangaValidator), updateManga)
+
 router.delete('/:id', deleteManga)
 
 module.exports = router

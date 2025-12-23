@@ -1,168 +1,136 @@
 const Manga = require('@/models/mangaModel')
-const Chapter = require('@/models/chapterModel')
-const MangaGenre = require('@/models/mangaGenreModel')
-const Genre = require('@/models/genreModel')
 
-const getAllMangas = async () => {
-  return Manga.find()
-}
+/**
+ * Pipeline dùng chung cho mọi query manga
+ */
+const baseMangaPipeline = () => [
+  // chapters
+  {
+    $lookup: {
+      from: 'chapters',
+      localField: '_id',
+      foreignField: 'mangaId',
+      as: 'chapters',
+    },
+  },
+  {
+    $addFields: {
+      chapterCount: { $size: '$chapters' },
+      latestChapterDate: { $max: '$chapters.createdAt' },
+    },
+  },
 
-const getMangaById = async (id) => {
-  return Manga.findById(id)
-}
+  // genres
+  {
+    $lookup: {
+      from: 'mangagenres',
+      localField: '_id',
+      foreignField: 'mangaId',
+      as: 'genreLinks',
+    },
+  },
+  {
+    $lookup: {
+      from: 'genres',
+      localField: 'genreLinks.genreId',
+      foreignField: '_id',
+      as: 'genres',
+    },
+  },
 
-const createManga = async (data) => {
-  const manga = new Manga(data)
-  return manga.save()
-}
+  // chuẩn hóa output
+  {
+    $project: {
+      title: 1,
+      coverImageUrl: 1,
+      description: 1,
+      viewCount: 1,
+      author: 1,
+      translationGroup: 1,
+      status: 1,
+      createdAt: 1,
+      chapterCount: 1,
+      genres: '$genres.name',
+      latestChapterDate: 1,
+    },
+  },
+]
 
-const updateManga = async (id, data) => {
-  return Manga.findByIdAndUpdate(id, data, { new: true })
-}
+/**
+ * Manga mới cập nhật
+ */
+const getLatestUpdatedMangas = async (limit = 10) =>
+  Manga.aggregate([
+    ...baseMangaPipeline(),
+    { $match: { chapterCount: { $gt: 0 } } },
+    { $sort: { latestChapterDate: -1 } },
+    { $limit: Number(limit) },
+  ])
 
-const deleteManga = async (id) => {
-  return Manga.findByIdAndDelete(id)
-}
+/**
+ * Manga top view
+ */
+const getTopViews = async (limit = 10) =>
+  Manga.aggregate([
+    ...baseMangaPipeline(),
+    { $sort: { viewCount: -1 } },
+    { $limit: Number(limit) },
+  ])
 
-const getTopViews = async (limit = 10) => {
-  const safeLimit = Math.max(1, Math.min(100, parseInt(limit) || 10))
-  return await Manga.find({})
-    .sort({ viewCount: -1 })
-    .limit(safeLimit)
-    .select('title coverImageUrl description viewCount')
-    .lean()
-}
+/**
+ * Manga phân trang
+ */
+const getAllMangasPaginated = async (page = 1, limit = 20) => {
+  const p = Math.max(1, Number(page))
+  const l = Math.max(1, Number(limit))
 
-const getLatestUpdatedMangas = async (limit = 10) => {
-  const safeLimit = Math.max(1, Math.min(50, parseInt(limit) || 10))
-
-  // 1. Lấy các manga có chapter mới nhất
-  const latestChapters = await Chapter.aggregate([
+  const result = await Manga.aggregate([
+    ...baseMangaPipeline(),
     { $sort: { createdAt: -1 } },
     {
-      $group: {
-        _id: '$mangaId',
-        latestChapterDate: { $first: '$createdAt' },
+      $facet: {
+        mangas: [{ $skip: (p - 1) * l }, { $limit: l }],
+        total: [{ $count: 'count' }],
       },
     },
-    { $sort: { latestChapterDate: -1 } },
-    { $limit: safeLimit },
   ])
-
-  const mangaIds = latestChapters.map((item) => item._id)
-
-  if (mangaIds.length === 0) return []
-
-  // 2. Lấy thông tin manga cơ bản
-  const mangas = await Manga.find({ _id: { $in: mangaIds } })
-    .select(
-      'title coverImageUrl description viewCount author translationGroup status createdAt'
-    )
-    .lean()
-
-  // 3. Đếm số chapter cho từng manga
-  const chapterCounts = await Chapter.aggregate([
-    { $match: { mangaId: { $in: mangaIds } } },
-    { $group: { _id: '$mangaId', chapterCount: { $sum: 1 } } },
-  ])
-
-  const countMap = {}
-  chapterCounts.forEach((item) => {
-    countMap[item._id.toString()] = item.chapterCount
-  })
-
-  // 4. Lấy danh sách genre cho tất cả mangaIds (từ bảng mangagenres)
-  const mangaGenreLinks = await MangaGenre.find({ mangaId: { $in: mangaIds } })
-    .select('mangaId genreId')
-    .lean()
-
-  const genreIds = [...new Set(mangaGenreLinks.map((link) => link.genreId))]
-
-  // 5. Lấy tên các genre từ collection genres
-  const genres = await Genre.find({ _id: { $in: genreIds } })
-    .select('name')
-    .lean()
-
-  const genreMap = {}
-  genres.forEach((g) => {
-    genreMap[g._id.toString()] = g.name
-  })
-
-  // 6. Gán genre cho từng manga
-  const mangaWithGenres = mangas.map((manga) => {
-    const links = mangaGenreLinks.filter(
-      (link) => link.mangaId.toString() === manga._id.toString()
-    )
-
-    const genreNames = links
-      .map((link) => genreMap[link.genreId.toString()])
-      .filter(Boolean)
-
-    return {
-      ...manga,
-      genres: genreNames, // Mảng tên thể loại: ["Action", "Romance", "Fantasy"]
-      chapterCount: countMap[manga._id.toString()] || 0,
-    }
-  })
-
-  // 7. Giữ nguyên thứ tự theo chapter mới nhất
-  return mangaIds
-    .map((id) =>
-      mangaWithGenres.find((m) => m._id.toString() === id.toString())
-    )
-    .filter(Boolean)
-}
-
-const getAllMangasPaginated = async (page = 1, limit = 20) => {
-  const safePage = Math.max(1, parseInt(page))
-  const safeLimit = Math.max(1, Math.min(100, parseInt(limit) || 20))
-  const skip = (safePage - 1) * safeLimit
-
-  const mangas = await Manga.find({})
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(safeLimit)
-    .select(
-      'title coverImageUrl description viewCount genre author translationGroup status createdAt'
-    )
-    .lean()
-
-  const total = await Manga.countDocuments({})
-
-  const mangaIds = mangas.map((m) => m._id)
-  const chapterCounts = await Chapter.aggregate([
-    { $match: { mangaId: { $in: mangaIds } } },
-    { $group: { _id: '$mangaId', chapterCount: { $sum: 1 } } },
-  ])
-
-  const countMap = {}
-  chapterCounts.forEach((item) => {
-    countMap[item._id] = item.count
-  })
-
-  const mangasWithCount = mangas.map((manga) => ({
-    ...manga,
-    chapterCount: countMap[manga._id] || 0,
-  }))
 
   return {
-    mangas: mangasWithCount,
+    mangas: result[0].mangas,
     pagination: {
-      page: safePage,
-      limit: safeLimit,
-      total,
-      totalPages: Math.ceil(total / safeLimit),
+      page: p,
+      limit: l,
+      total: result[0].total[0]?.count || 0,
+      totalPages: Math.ceil((result[0].total[0]?.count || 0) / l),
     },
   }
 }
 
+/**
+ * Manga random
+ */
+const getRandomMangas = async (limit = 5) =>
+  Manga.aggregate([
+    { $sample: { size: Number(limit) } },
+    ...baseMangaPipeline(),
+  ])
+
+/**
+ * CRUD admin
+ */
+const getMangaById = (id) => Manga.findById(id)
+const createManga = (data) => new Manga(data).save()
+const updateManga = (id, data) =>
+  Manga.findByIdAndUpdate(id, data, { new: true })
+const deleteManga = (id) => Manga.findByIdAndDelete(id)
+
 module.exports = {
-  getAllMangas,
+  getLatestUpdatedMangas,
+  getTopViews,
+  getAllMangasPaginated,
+  getRandomMangas,
   getMangaById,
   createManga,
   updateManga,
   deleteManga,
-  getTopViews,
-  getLatestUpdatedMangas,
-  getAllMangasPaginated,
 }
