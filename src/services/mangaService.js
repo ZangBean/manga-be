@@ -116,7 +116,7 @@ const getRandomMangas = async (limit = 5) =>
   ])
 
 /**
- * CRUD (admin)
+ * CRUD admin
  */
 const getMangaById = (id) => Manga.findById(id)
 const createManga = (data) => new Manga(data).save()
