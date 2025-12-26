@@ -17,6 +17,7 @@ const mangaSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true,
+      index: true,
     },
     translationGroup: { type: String, maxlength: 255, trim: true },
   },
