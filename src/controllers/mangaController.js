@@ -1,9 +1,20 @@
 const mangaService = require('@/services/mangaService')
+const { uploadImageToR2 } = require('@/services/r2UploadService')
+
+const ok = (res, data, extra = {}) =>
+  res.json({ success: true, data, ...extra })
+
+const created = (res, data) => res.status(201).json({ success: true, data })
+
+const notFound = (res, message = 'Not found') =>
+  res.status(404).json({ success: false, message })
+
+/* ===================== QUERY ===================== */
 
 exports.getAllMangas = async (req, res, next) => {
   try {
     const mangas = await mangaService.getAllMangas()
-    res.json(mangas)
+    ok(res, mangas)
   } catch (err) {
     next(err)
   }
@@ -11,52 +22,19 @@ exports.getAllMangas = async (req, res, next) => {
 
 exports.getMangaById = async (req, res, next) => {
   try {
-    const { id } = req.params
-    const manga = await mangaService.getMangaById(id)
-    res.json(manga)
+    const manga = await mangaService.getMangaById(req.params.id)
+    if (!manga) return notFound(res, 'Manga not found')
+    ok(res, manga)
   } catch (err) {
     next(err)
   }
 }
 
-exports.getTopViews = async (req, res) => {
+exports.getTopViews = async (req, res, next) => {
   try {
-    const limit = req.query.limit
+    const limit = Number(req.query.limit) || 10
     const mangas = await mangaService.getTopViews(limit)
-    res.json(mangas)
-  } catch (error) {
-    res.status(500).json({ message: error.message })
-  }
-}
-
-exports.createManga = async (req, res, next) => {
-  try {
-    const savedManga = await mangaService.createManga(req.body)
-    res.status(201).json(savedManga)
-  } catch (err) {
-    next(err)
-  }
-}
-
-exports.updateManga = async (req, res, next) => {
-  try {
-    const { id } = req.params
-    const updatedManga = await mangaService.updateManga(id, req.body)
-    if (!updatedManga)
-      return res.status(404).json({ message: 'Manga not found' })
-    res.json(updatedManga)
-  } catch (err) {
-    next(err)
-  }
-}
-
-exports.deleteManga = async (req, res, next) => {
-  try {
-    const { id } = req.params
-    const deletedManga = await mangaService.deleteManga(id)
-    if (!deletedManga)
-      return res.status(404).json({ message: 'Manga not found' })
-    res.json({ message: 'Manga deleted successfully' })
+    ok(res, mangas)
   } catch (err) {
     next(err)
   }
@@ -64,23 +42,9 @@ exports.deleteManga = async (req, res, next) => {
 
 exports.getLatestUpdatedMangas = async (req, res, next) => {
   try {
-    const limit = req.query.limit || 10
+    const limit = Number(req.query.limit) || 10
     const mangas = await mangaService.getLatestUpdatedMangas(limit)
-    res.json(mangas)
-  } catch (err) {
-    next(err)
-  }
-}
-
-exports.getAllMangasPaginated = async (req, res, next) => {
-  try {
-    const page = req.query.page || 1
-    const limit = req.query.limit || 20
-    const result = await mangaService.getAllMangasPaginated(page, limit)
-    res.json({
-      success: true,
-      ...result,
-    })
+    ok(res, mangas)
   } catch (err) {
     next(err)
   }
@@ -90,7 +54,76 @@ exports.getRandomMangas = async (req, res, next) => {
   try {
     const limit = Number(req.query.limit) || 5
     const mangas = await mangaService.getRandomMangas(limit)
-    res.json(mangas)
+    ok(res, mangas)
+  } catch (err) {
+    next(err)
+  }
+}
+
+exports.getAllMangasPaginated = async (req, res, next) => {
+  try {
+    const page = Number(req.query.page) || 1
+    const limit = Number(req.query.limit) || 20
+    const { mangas, pagination } = await mangaService.getAllMangasPaginated(
+      page,
+      limit
+    )
+
+    ok(res, mangas, { pagination })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/* ===================== MUTATION ===================== */
+
+exports.createManga = async (req, res, next) => {
+  try {
+    let coverImageUrl = null
+
+    if (req.file) {
+      coverImageUrl = await uploadImageToR2(req.file)
+    }
+
+    const manga = await mangaService.createManga({
+      ...req.body,
+      coverImageUrl,
+      uploaderId: req.user.id,
+    })
+
+    res.status(201).json({
+      success: true,
+      data: manga,
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+exports.getMyMangas = async (req, res, next) => {
+  try {
+    const mangas = await mangaService.getMangasByUploader(req.user.id)
+    ok(res, mangas)
+  } catch (err) {
+    next(err)
+  }
+}
+
+exports.updateManga = async (req, res, next) => {
+  try {
+    const manga = await mangaService.updateManga(req.params.id, req.body)
+    if (!manga) return notFound(res, 'Manga not found')
+    ok(res, manga)
+  } catch (err) {
+    next(err)
+  }
+}
+
+exports.deleteManga = async (req, res, next) => {
+  try {
+    const manga = await mangaService.deleteManga(req.params.id)
+    if (!manga) return notFound(res, 'Manga not found')
+    ok(res, null, { message: 'Deleted successfully' })
   } catch (err) {
     next(err)
   }
