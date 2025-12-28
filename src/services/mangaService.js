@@ -1,8 +1,8 @@
 const Manga = require('@/models/mangaModel')
 
-/**
- * Pipeline dùng chung cho mọi query manga
- */
+const getAllMangas = () =>
+  Manga.aggregate([...baseMangaPipeline(), { $sort: { createdAt: -1 } }])
+
 const baseMangaPipeline = () => [
   // chapters
   {
@@ -38,7 +38,6 @@ const baseMangaPipeline = () => [
     },
   },
 
-  // chuẩn hóa output
   {
     $project: {
       title: 1,
@@ -56,9 +55,6 @@ const baseMangaPipeline = () => [
   },
 ]
 
-/**
- * Manga mới cập nhật
- */
 const getLatestUpdatedMangas = async (limit = 10) =>
   Manga.aggregate([
     ...baseMangaPipeline(),
@@ -67,9 +63,6 @@ const getLatestUpdatedMangas = async (limit = 10) =>
     { $limit: Number(limit) },
   ])
 
-/**
- * Manga top view
- */
 const getTopViews = async (limit = 10) =>
   Manga.aggregate([
     ...baseMangaPipeline(),
@@ -77,9 +70,6 @@ const getTopViews = async (limit = 10) =>
     { $limit: Number(limit) },
   ])
 
-/**
- * Manga phân trang
- */
 const getAllMangasPaginated = async (page = 1, limit = 20) => {
   const p = Math.max(1, Number(page))
   const l = Math.max(1, Number(limit))
@@ -106,30 +96,29 @@ const getAllMangasPaginated = async (page = 1, limit = 20) => {
   }
 }
 
-/**
- * Manga random
- */
 const getRandomMangas = async (limit = 5) =>
   Manga.aggregate([
-    { $sample: { size: Number(limit) } },
     ...baseMangaPipeline(),
+    { $sample: { size: Number(limit) } },
   ])
 
-/**
- * CRUD admin
- */
 const getMangaById = (id) => Manga.findById(id)
 const createManga = (data) => new Manga(data).save()
+const getMangasByUploader = (uploaderId) =>
+  Manga.find({ uploaderId }).sort({ createdAt: -1 })
+
 const updateManga = (id, data) =>
   Manga.findByIdAndUpdate(id, data, { new: true })
 const deleteManga = (id) => Manga.findByIdAndDelete(id)
 
 module.exports = {
+  getAllMangas,
   getLatestUpdatedMangas,
   getTopViews,
   getAllMangasPaginated,
   getRandomMangas,
   getMangaById,
+  getMangasByUploader,
   createManga,
   updateManga,
   deleteManga,

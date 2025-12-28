@@ -1,7 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const authController = require('@/controllers/authController')
-const { optionalAuth } = require('@/middleware/authMiddleware')
+const { optionalAuth } = require('@/middleware/auth')
 
 router.get('/me', optionalAuth, authController.me)
 router.post('/login', authController.login)
