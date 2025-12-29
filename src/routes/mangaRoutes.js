@@ -28,9 +28,13 @@ router.get('/my', auth, getMyMangas)
 router.get('/:id', getMangaById)
 
 router.post('/', auth, upload.single('cover'), createManga)
-
-router.put('/:id', auth, validateRequest(updateMangaValidator), updateManga)
-
+router.put(
+  '/:id',
+  auth,
+  upload.single('cover'),
+  validateRequest(updateMangaValidator),
+  updateManga
+)
 router.delete('/:id', auth, deleteManga)
 
 module.exports = router
