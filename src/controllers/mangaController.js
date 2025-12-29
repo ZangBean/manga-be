@@ -1,5 +1,8 @@
 const mangaService = require('@/services/mangaService')
-const { uploadImageToR2 } = require('@/services/r2UploadService')
+const {
+  uploadImageToR2,
+  deleteImageFromR2,
+} = require('@/services/r2UploadService')
 
 const ok = (res, data, extra = {}) =>
   res.json({ success: true, data, ...extra })
@@ -80,14 +83,18 @@ exports.getAllMangasPaginated = async (req, res, next) => {
 exports.createManga = async (req, res, next) => {
   try {
     let coverImageUrl = null
+    let coverImageKey = null
 
     if (req.file) {
-      coverImageUrl = await uploadImageToR2(req.file)
+      const uploaded = await uploadImageToR2(req.file)
+      coverImageUrl = uploaded.url
+      coverImageKey = uploaded.key
     }
 
     const manga = await mangaService.createManga({
       ...req.body,
       coverImageUrl,
+      coverImageKey,
       uploaderId: req.user.id,
     })
 
@@ -111,9 +118,33 @@ exports.getMyMangas = async (req, res, next) => {
 
 exports.updateManga = async (req, res, next) => {
   try {
-    const manga = await mangaService.updateManga(req.params.id, req.body)
-    if (!manga) return notFound(res, 'Manga not found')
-    ok(res, manga)
+    const mangaId = req.params.id
+
+    // 1. Tìm manga hiện tại để lấy ảnh cũ
+    const existingManga = await mangaService.getMangaById(mangaId)
+    if (!existingManga) return notFound(res, 'Manga not found')
+
+    let updateData = { ...req.body }
+
+    // 2. Xử lý upload ảnh mới nếu có
+    if (req.file) {
+      // Upload ảnh mới
+      const { url: newUrl, key: newKey } = await uploadImageToR2(req.file)
+
+      // Xóa ảnh cũ nếu tồn tại
+      if (existingManga.coverImageKey) {
+        await deleteImageFromR2(existingManga.coverImageKey)
+      }
+
+      // Cập nhật field mới
+      updateData.coverImageUrl = newUrl
+      updateData.coverImageKey = newKey
+    }
+
+    // 3. Update document
+    const updatedManga = await mangaService.updateManga(mangaId, updateData)
+
+    ok(res, updatedManga)
   } catch (err) {
     next(err)
   }
@@ -121,10 +152,39 @@ exports.updateManga = async (req, res, next) => {
 
 exports.deleteManga = async (req, res, next) => {
   try {
-    const manga = await mangaService.deleteManga(req.params.id)
-    if (!manga) return notFound(res, 'Manga not found')
-    ok(res, null, { message: 'Deleted successfully' })
+    const mangaId = req.params.id
+
+    // 1. Tìm manga trước để lấy thông tin ảnh cũ
+    const manga = await mangaService.getMangaById(mangaId)
+    if (!manga) {
+      return notFound(res, 'Manga not found')
+    }
+
+    // 2. Xóa ảnh bìa trên R2 nếu tồn tại
+    if (manga.coverImageKey) {
+      await deleteImageFromR2(manga.coverImageKey)
+      console.log(
+        `Đã xóa ảnh bìa trên R2 cho manga ${mangaId}: ${manga.coverImageKey}`
+      )
+    } else if (manga.coverImageUrl) {
+      try {
+        const urlParts = new URL(manga.coverImageUrl).pathname.split('/')
+        const key = urlParts.slice(1).join('/') // loại bỏ '/' đầu tiên
+        await deleteImageFromR2(key)
+        console.log(`Fallback: Đã xóa ảnh cũ từ URL cho manga ${mangaId}`)
+      } catch (parseErr) {
+        console.warn(
+          `Không thể parse key từ URL cho manga ${mangaId}:`,
+          parseErr
+        )
+      }
+    }
+
+    await mangaService.deleteManga(mangaId)
+
+    ok(res, null, { message: 'Manga và ảnh bìa đã được xóa thành công' })
   } catch (err) {
+    console.error('Lỗi khi xóa manga:', err)
     next(err)
   }
 }

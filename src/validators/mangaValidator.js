@@ -9,6 +9,7 @@ const baseFields = {
   status: Joi.string().valid('ongoing', 'completed', 'hiatus'),
   releaseDate: Joi.date(),
   author: Joi.string().max(255).allow('', null),
+  translationGroup: Joi.string().max(255).allow('', null),
 }
 
 // exports.createMangaValidator = (data) =>
