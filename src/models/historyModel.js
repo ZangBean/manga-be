@@ -1,4 +1,4 @@
-const mongoose = require('mongoose')
+import mongoose from 'mongoose'
 
 const historySchema = new mongoose.Schema(
   {
@@ -12,7 +12,10 @@ const historySchema = new mongoose.Schema(
       ref: 'Manga',
       required: true,
     },
-    chapterId: { type: mongoose.Schema.Types.ObjectId, ref: 'Chapter' },
+    chapterId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Chapter',
+    },
     lastReadPage: { type: Number },
     readAt: { type: Date, default: Date.now },
   },
@@ -21,4 +24,5 @@ const historySchema = new mongoose.Schema(
 
 historySchema.index({ userId: 1, mangaId: 1 }, { unique: true })
 
-module.exports = mongoose.model('History', historySchema)
+const History = mongoose.model('History', historySchema)
+export default History

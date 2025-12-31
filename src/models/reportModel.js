@@ -1,4 +1,4 @@
-const mongoose = require('mongoose')
+import mongoose from 'mongoose'
 
 const reportSchema = new mongoose.Schema(
   {
@@ -7,16 +7,36 @@ const reportSchema = new mongoose.Schema(
       ref: 'User',
       required: true,
     },
-    mangaId: { type: mongoose.Schema.Types.ObjectId, ref: 'Manga' },
-    chapterId: { type: mongoose.Schema.Types.ObjectId, ref: 'Chapter' },
-    commentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Comment' },
-    reason: { type: String, required: true },
-    status: { type: String, enum: ['pending', 'resolved'], default: 'pending' },
+    mangaId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Manga',
+    },
+    chapterId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Chapter',
+    },
+    commentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Comment',
+    },
+    reason: {
+      type: String,
+      required: true,
+    },
+    status: {
+      type: String,
+      enum: ['pending', 'resolved'],
+      default: 'pending',
+    },
   },
   { timestamps: true }
 )
-reportSchema.index({ status: 1 })
-mangaGenreSchema.index({ mangaId: 1, genreId: 1 }, { unique: true })
-mangaGenreSchema.index({ genreId: 1 })
 
-module.exports = mongoose.model('Report', reportSchema)
+// index đúng schema
+reportSchema.index({ status: 1 })
+reportSchema.index({ mangaId: 1 })
+reportSchema.index({ chapterId: 1 })
+reportSchema.index({ commentId: 1 })
+
+const Report = mongoose.model('Report', reportSchema)
+export default Report

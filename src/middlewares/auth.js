@@ -1,6 +1,6 @@
-const jwt = require('jsonwebtoken')
+import jwt from 'jsonwebtoken'
 
-exports.auth = (req, res, next) => {
+export const auth = (req, res, next) => {
   const token = req.cookies?.access_token
   if (!token) return res.status(401).json({ message: 'Unauthorized' })
 
@@ -12,16 +12,18 @@ exports.auth = (req, res, next) => {
   }
 }
 
-exports.optionalAuth = (req, res, next) => {
+export const optionalAuth = (req, res, next) => {
   const token = req.cookies?.access_token
   if (!token) {
     req.user = null
     return next()
   }
+
   try {
     req.user = jwt.verify(token, process.env.JWT_SECRET)
   } catch {
     req.user = null
   }
+
   next()
 }

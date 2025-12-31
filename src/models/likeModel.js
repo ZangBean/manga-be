@@ -1,4 +1,4 @@
-const mongoose = require('mongoose')
+import mongoose from 'mongoose'
 
 const likeSchema = new mongoose.Schema(
   {
@@ -7,7 +7,10 @@ const likeSchema = new mongoose.Schema(
       ref: 'User',
       required: true,
     },
-    targetId: { type: mongoose.Schema.Types.ObjectId, required: true },
+    targetId: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: true,
+    },
     targetType: {
       type: String,
       enum: ['Manga', 'Comment'],
@@ -19,4 +22,5 @@ const likeSchema = new mongoose.Schema(
 
 likeSchema.index({ userId: 1, targetId: 1, targetType: 1 }, { unique: true })
 
-module.exports = mongoose.model('Like', likeSchema)
+const Like = mongoose.model('Like', likeSchema)
+export default Like

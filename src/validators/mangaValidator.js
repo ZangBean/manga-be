@@ -1,4 +1,4 @@
-const Joi = require('joi')
+import Joi from 'joi'
 
 const baseFields = {
   title: Joi.string().max(255),
@@ -12,11 +12,5 @@ const baseFields = {
   translationGroup: Joi.string().max(255).allow('', null),
 }
 
-// exports.createMangaValidator = (data) =>
-//   Joi.object({
-//     ...baseFields,
-//     title: baseFields.title.required(),
-//   }).validate(data)
-
-exports.updateMangaValidator = (data) =>
+export const updateMangaValidator = (data) =>
   Joi.object(baseFields).min(1).validate(data)

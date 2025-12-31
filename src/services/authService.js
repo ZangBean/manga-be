@@ -1,7 +1,7 @@
-const User = require('@/models/userModel')
-const jwt = require('jsonwebtoken')
+import User from '../models/userModel.js'
+import jwt from 'jsonwebtoken'
 
-const login = async (email, password) => {
+export const login = async (email, password) => {
   const user = await User.findOne({ email }).select('+password')
   if (!user || !(await user.comparePassword(password)))
     throw { status: 401, message: 'Sai email hoặc mật khẩu' }
@@ -20,4 +20,3 @@ const login = async (email, password) => {
 
   return { token, user }
 }
-module.exports = { login }

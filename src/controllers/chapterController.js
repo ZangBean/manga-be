@@ -1,18 +1,26 @@
-const { PutObjectCommand } = require('@aws-sdk/client-s3')
-const r2 = require('../config/r2')
+import { createChapter as createChapterService } from '../services/chapterService.js'
 
-exports.uploadImages = async (req, res, next) => {
+export const createChapter = async (req, res, next) => {
   try {
-    await r2.send(
-      new PutObjectCommand({
-        Bucket: process.env.R2_BUCKET,
-        Key: 'test/test.jpg',
-        Body: req.files[0].buffer,
-        ContentType: req.files[0].mimetype,
-      })
-    )
+    const { mangaId } = req.params
+    const { chapterNumber, title } = req.body
+    const files = req.files || []
 
-    res.json({ ok: true })
+    if (!mangaId || !chapterNumber) {
+      return res
+        .status(400)
+        .json({ success: false, message: 'Thiếu thông tin' })
+    }
+
+    const fullChapter = await createChapterService({
+      mangaId,
+      chapterNumber,
+      title,
+      uploaderId: req.user.id,
+      files,
+    })
+
+    res.status(201).json({ success: true, data: fullChapter })
   } catch (err) {
     next(err)
   }

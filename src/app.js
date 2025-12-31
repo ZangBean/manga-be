@@ -1,11 +1,10 @@
-require('module-alias/register')
-const express = require('express')
-const cors = require('cors')
-const mangaRoutes = require('@/routes/mangaRoutes')
-const chapterRoutes = require('@/routes/chapterRoutes')
-const authRoutes = require('@/routes/authRoutes')
-const errorHandler = require('@/middleware/errorHandler')
-const cookieParser = require('cookie-parser')
+import express from 'express'
+import cors from 'cors'
+import cookieParser from 'cookie-parser'
+
+import mangaRoutes from './routes/mangaRoutes.js'
+import authRoutes from './routes/authRoutes.js'
+import errorHandler from './middlewares/errorHandler.js'
 
 const app = express()
 
@@ -14,9 +13,8 @@ app.use(express.json())
 app.use(cookieParser())
 
 app.use('/api/mangas', mangaRoutes)
-app.use('/api/chapters', chapterRoutes)
 app.use('/api/auth', authRoutes)
 
 app.use(errorHandler)
 
-module.exports = app
+export default app

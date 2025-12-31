@@ -1,13 +1,13 @@
-const authService = require('@/services/authService')
+import { login as loginService } from '../services/authService.js'
 
-exports.login = async (req, res, next) => {
+export const login = async (req, res, next) => {
   try {
     const { email, password } = req.body
-    const { token, user } = await authService.login(email, password)
+    const { token, user } = await loginService(email, password)
 
     res.cookie('access_token', token, {
       httpOnly: true,
-      secure: false, // localhost bắt buộc false
+      secure: false, // localhost
       sameSite: 'lax',
       maxAge: 30 * 24 * 60 * 60 * 1000,
     })
@@ -18,7 +18,7 @@ exports.login = async (req, res, next) => {
   }
 }
 
-exports.logout = (req, res) => {
+export const logout = (req, res) => {
   res.clearCookie('access_token', {
     httpOnly: true,
     secure: false,
@@ -27,6 +27,6 @@ exports.logout = (req, res) => {
   res.sendStatus(204)
 }
 
-exports.me = async (req, res) => {
+export const me = async (req, res) => {
   res.json({ user: req.user || null })
 }

@@ -1,10 +1,9 @@
-const Manga = require('@/models/mangaModel')
-
-const getAllMangas = () =>
-  Manga.aggregate([...baseMangaPipeline(), { $sort: { createdAt: -1 } }])
+import Manga from '../models/mangaModel.js'
+import Chapter from '../models/chapterModel.js'
+import Image from '../models/imageModel.js'
+import { uploadMangaCoverToR2, deleteImagesFromR2 } from './r2UploadService.js'
 
 const baseMangaPipeline = () => [
-  // chapters
   {
     $lookup: {
       from: 'chapters',
@@ -19,8 +18,6 @@ const baseMangaPipeline = () => [
       latestChapterDate: { $max: '$chapters.createdAt' },
     },
   },
-
-  // genres
   {
     $lookup: {
       from: 'mangagenres',
@@ -37,7 +34,6 @@ const baseMangaPipeline = () => [
       as: 'genres',
     },
   },
-
   {
     $project: {
       title: 1,
@@ -48,14 +44,20 @@ const baseMangaPipeline = () => [
       translationGroup: 1,
       status: 1,
       createdAt: 1,
+      updatedAt: 1,
       chapterCount: 1,
-      genres: '$genres.name',
       latestChapterDate: 1,
+      genres: '$genres.name',
+      uploaderId: 1, // giữ lại để kiểm tra quyền
     },
   },
 ]
 
-const getLatestUpdatedMangas = async (limit = 10) =>
+// ── QUERY ──
+export const getAllMangas = () =>
+  Manga.aggregate([...baseMangaPipeline(), { $sort: { createdAt: -1 } }])
+
+export const getLatestUpdatedMangas = (limit = 10) =>
   Manga.aggregate([
     ...baseMangaPipeline(),
     { $match: { chapterCount: { $gt: 0 } } },
@@ -63,18 +65,18 @@ const getLatestUpdatedMangas = async (limit = 10) =>
     { $limit: Number(limit) },
   ])
 
-const getTopViews = async (limit = 10) =>
+export const getTopViews = (limit = 10) =>
   Manga.aggregate([
     ...baseMangaPipeline(),
     { $sort: { viewCount: -1 } },
     { $limit: Number(limit) },
   ])
 
-const getAllMangasPaginated = async (page = 1, limit = 20) => {
+export const getAllMangasPaginated = async (page = 1, limit = 20) => {
   const p = Math.max(1, Number(page))
   const l = Math.max(1, Number(limit))
 
-  const result = await Manga.aggregate([
+  const [result] = await Manga.aggregate([
     ...baseMangaPipeline(),
     { $sort: { createdAt: -1 } },
     {
@@ -85,41 +87,128 @@ const getAllMangasPaginated = async (page = 1, limit = 20) => {
     },
   ])
 
+  const total = result.total[0]?.count || 0
+
   return {
-    mangas: result[0].mangas,
+    mangas: result.mangas,
     pagination: {
       page: p,
       limit: l,
-      total: result[0].total[0]?.count || 0,
-      totalPages: Math.ceil((result[0].total[0]?.count || 0) / l),
+      total,
+      totalPages: Math.ceil(total / l),
     },
   }
 }
 
-const getRandomMangas = async (limit = 5) =>
+export const getRandomMangas = (limit = 5) =>
   Manga.aggregate([
     ...baseMangaPipeline(),
     { $sample: { size: Number(limit) } },
   ])
 
-const getMangaById = (id) => Manga.findById(id)
-const createManga = (data) => new Manga(data).save()
-const getMangasByUploader = (uploaderId) =>
-  Manga.find({ uploaderId }).sort({ createdAt: -1 })
+export const getMangaById = (id) => Manga.findById(id).lean()
 
-const updateManga = (id, data) =>
-  Manga.findByIdAndUpdate(id, data, { new: true })
-const deleteManga = (id) => Manga.findByIdAndDelete(id)
+export const getMangasByUploader = (uploaderId) =>
+  Manga.find({ uploaderId }).sort({ createdAt: -1 }).lean()
 
-module.exports = {
-  getAllMangas,
-  getLatestUpdatedMangas,
-  getTopViews,
-  getAllMangasPaginated,
-  getRandomMangas,
-  getMangaById,
-  getMangasByUploader,
-  createManga,
-  updateManga,
-  deleteManga,
+// ── MUTATION ──
+export const createMangaService = async (mangaData, file = null) => {
+  const newManga = await Manga.create(mangaData)
+
+  if (file) {
+    const { url, key } = await uploadMangaCoverToR2(
+      file,
+      newManga._id.toString()
+    )
+
+    await Manga.findByIdAndUpdate(
+      newManga._id,
+      {
+        coverImageUrl: url,
+        coverImageKey: key,
+      },
+      { new: true }
+    )
+  }
+
+  // Trả về manga đầy đủ
+  return getMangaById(newManga._id)
+}
+
+export const updateMangaService = async (
+  mangaId,
+  updateData,
+  file = null,
+  userId
+) => {
+  const manga = await Manga.findById(mangaId).lean()
+  if (!manga) {
+    throw new Error('Manga không tồn tại')
+  }
+
+  if (manga.uploaderId?.toString() !== userId) {
+    throw new Error('Bạn không có quyền cập nhật manga này')
+  }
+
+  let finalUpdateData = { ...updateData }
+
+  if (file) {
+    const { url, key } = await uploadMangaCoverToR2(file, mangaId)
+
+    if (manga.coverImageKey) {
+      await deleteImagesFromR2([manga.coverImageKey])
+    }
+
+    finalUpdateData.coverImageUrl = url
+    finalUpdateData.coverImageKey = key
+  }
+
+  const updated = await Manga.findByIdAndUpdate(mangaId, finalUpdateData, {
+    new: true,
+  }).lean()
+
+  return updated
+}
+
+export const deleteMangaService = async (mangaId, userId) => {
+  const manga = await Manga.findById(mangaId).lean()
+  if (!manga) {
+    throw new Error('Manga không tồn tại')
+  }
+
+  if (manga.uploaderId?.toString() !== userId) {
+    throw new Error('Bạn không có quyền xóa manga này')
+  }
+
+  const chapters = await Chapter.find({ mangaId }).select('_id').lean()
+  const chapterIds = chapters.map((c) => c._id)
+
+  let allImageKeys = []
+
+  if (chapterIds.length > 0) {
+    const images = await Image.find({ chapterId: { $in: chapterIds } })
+      .select('key')
+      .lean()
+    allImageKeys = images.map((img) => img.key).filter(Boolean)
+  }
+
+  if (manga.coverImageKey) {
+    allImageKeys.push(manga.coverImageKey)
+  }
+
+  if (allImageKeys.length > 0) {
+    await deleteImagesFromR2(allImageKeys)
+  }
+
+  if (chapterIds.length > 0) {
+    await Image.deleteMany({ chapterId: { $in: chapterIds } })
+    await Chapter.deleteMany({ mangaId })
+  }
+
+  await Manga.findByIdAndDelete(mangaId)
+
+  return {
+    deletedChapters: chapters.length,
+    deletedImages: allImageKeys.length,
+  }
 }

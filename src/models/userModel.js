@@ -1,5 +1,5 @@
-const mongoose = require('mongoose')
-const bcrypt = require('bcryptjs')
+import mongoose from 'mongoose'
+import bcrypt from 'bcryptjs'
 
 const userSchema = new mongoose.Schema(
   {
@@ -7,6 +7,8 @@ const userSchema = new mongoose.Schema(
       type: String,
       trim: true,
       maxlength: 100,
+      unique: true,
+      sparse: true,
     },
 
     password: {
@@ -49,28 +51,18 @@ const userSchema = new mongoose.Schema(
       },
     ],
 
-    // Trạng thái tài khoản
-    isBanned: {
-      type: Boolean,
-      default: false,
-    },
-    isEmailVerified: {
-      type: Boolean,
-      default: false,
-    },
+    isBanned: { type: Boolean, default: false },
+    isEmailVerified: { type: Boolean, default: false },
 
-    // Token cho verify email & reset password
     emailVerificationToken: String,
     emailVerificationExpire: Date,
 
     resetPasswordToken: String,
     resetPasswordExpire: Date,
 
-    // Theo dõi hoạt động
     lastLoginAt: Date,
     lastActiveAt: Date,
 
-    // Cài đặt cá nhân (theme, ngôn ngữ,...)
     preferences: {
       type: Map,
       of: mongoose.Schema.Types.Mixed,
@@ -81,42 +73,34 @@ const userSchema = new mongoose.Schema(
         ]),
     },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 )
 
-// HOOK: Tự động hash password
+/* hooks */
 userSchema.pre('save', async function (next) {
-  if (!this.isModified('password') || !this.password) {
-    return next()
-  }
-
+  if (!this.isModified('password') || !this.password) return next()
   try {
-    const salt = await bcrypt.genSalt(12)
-    this.password = await bcrypt.hash(this.password, salt)
+    this.password = await bcrypt.hash(this.password, 12)
     next()
   } catch (err) {
     next(err)
   }
 })
 
-// METHOD: So sánh password (dùng khi login local)
-userSchema.methods.comparePassword = async function (candidatePassword) {
+/* methods */
+userSchema.methods.comparePassword = function (candidatePassword) {
   if (!this.password) return false
   return bcrypt.compare(candidatePassword, this.password)
 }
 
-// METHOD: Kiểm tra user có active gần đây không
 userSchema.methods.isRecentlyActive = function (minutes = 5) {
   if (!this.lastActiveAt) return false
-  const threshold = new Date(Date.now() - minutes * 60 * 1000)
-  return this.lastActiveAt > threshold
+  return this.lastActiveAt > new Date(Date.now() - minutes * 60 * 1000)
 }
 
-// INDEXES - Tối ưu query
-userSchema.index({ email: 1 }, { sparse: true, unique: true })
+/* indexes */
 userSchema.index({ 'providers.name': 1, 'providers.providerId': 1 })
-userSchema.index({ lastActiveAt: 1 }) // Hỗ trợ query user active gần đây
+userSchema.index({ lastActiveAt: 1 })
 
-module.exports = mongoose.model('User', userSchema)
+const User = mongoose.model('User', userSchema)
+export default User
