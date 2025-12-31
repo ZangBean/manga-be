@@ -1,4 +1,4 @@
-const mongoose = require('mongoose')
+import mongoose from 'mongoose'
 
 const mangaSchema = new mongoose.Schema(
   {
@@ -20,6 +20,11 @@ const mangaSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    totalChapters: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     translationGroup: { type: String, maxlength: 255, trim: true },
   },
   { timestamps: true, versionKey: false }
@@ -27,4 +32,5 @@ const mangaSchema = new mongoose.Schema(
 
 mangaSchema.index({ title: 'text', author: 1 })
 
-module.exports = mongoose.model('Manga', mangaSchema)
+const Manga = mongoose.model('Manga', mangaSchema)
+export default Manga

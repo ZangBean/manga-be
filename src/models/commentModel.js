@@ -1,4 +1,4 @@
-const mongoose = require('mongoose')
+import mongoose from 'mongoose'
 
 const commentSchema = new mongoose.Schema(
   {
@@ -19,7 +19,10 @@ const commentSchema = new mongoose.Schema(
     content: { type: String, required: true, trim: true },
     isSpoiler: { type: Boolean, default: false },
     likeCount: { type: Number, default: 0 },
-    parentCommentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Comment' },
+    parentCommentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Comment',
+    },
     status: {
       type: String,
       enum: ['approved', 'pending', 'rejected'],
@@ -32,4 +35,5 @@ const commentSchema = new mongoose.Schema(
 commentSchema.index({ mangaId: 1 })
 commentSchema.index({ chapterId: 1 })
 
-module.exports = mongoose.model('Comment', commentSchema)
+const Comment = mongoose.model('Comment', commentSchema)
+export default Comment

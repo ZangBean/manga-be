@@ -1,4 +1,4 @@
-const mongoose = require('mongoose')
+import mongoose from 'mongoose'
 
 const mangaGenreSchema = new mongoose.Schema(
   {
@@ -13,9 +13,8 @@ const mangaGenreSchema = new mongoose.Schema(
       required: true,
     },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 )
 
-module.exports = mongoose.model('MangaGenre', mangaGenreSchema)
+const MangaGenre = mongoose.model('MangaGenre', mangaGenreSchema)
+export default MangaGenre

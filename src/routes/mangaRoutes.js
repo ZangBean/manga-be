@@ -1,9 +1,9 @@
-const express = require('express')
-const { auth } = require('@/middleware/auth')
-const upload = require('@/middleware/upload')
-const router = express.Router()
+import express from 'express'
+import { auth } from '../middlewares/auth.js'
+import upload from '../middlewares/upload.js'
+import validateRequest from '../middlewares/validateRequest.js'
 
-const {
+import {
   getAllMangas,
   getMangaById,
   getTopViews,
@@ -14,10 +14,12 @@ const {
   getLatestUpdatedMangas,
   getAllMangasPaginated,
   getRandomMangas,
-} = require('@/controllers/mangaController')
+} from '../controllers/mangaController.js'
 
-const { updateMangaValidator } = require('@/validators/mangaValidator')
-const validateRequest = require('@/middleware/validateRequest')
+import { createChapter } from '../controllers/chapterController.js'
+import { updateMangaValidator } from '../validators/mangaValidator.js'
+
+const router = express.Router()
 
 router.get('/top-views', getTopViews)
 router.get('/latest', getLatestUpdatedMangas)
@@ -28,6 +30,13 @@ router.get('/my', auth, getMyMangas)
 router.get('/:id', getMangaById)
 
 router.post('/', auth, upload.single('cover'), createManga)
+router.post(
+  '/:mangaId/chapters',
+  auth,
+  upload.array('pages', 100),
+  createChapter
+)
+
 router.put(
   '/:id',
   auth,
@@ -35,6 +44,7 @@ router.put(
   validateRequest(updateMangaValidator),
   updateManga
 )
+
 router.delete('/:id', auth, deleteManga)
 
-module.exports = router
+export default router

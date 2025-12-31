@@ -1,4 +1,4 @@
-const mongoose = require('mongoose')
+import mongoose from 'mongoose'
 
 const genreSchema = new mongoose.Schema(
   {
@@ -18,9 +18,8 @@ const genreSchema = new mongoose.Schema(
       trim: true,
     },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 )
 
-module.exports = mongoose.model('Genre', genreSchema)
+const Genre = mongoose.model('Genre', genreSchema)
+export default Genre
