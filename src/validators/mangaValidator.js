@@ -12,5 +12,11 @@ const baseFields = {
   translationGroup: Joi.string().max(255).allow('', null),
 }
 
+export const createMangaValidator = (data) =>
+  Joi.object({
+    ...baseFields,
+    title: baseFields.title.required(),
+  }).validate(data)
+
 export const updateMangaValidator = (data) =>
   Joi.object(baseFields).min(1).validate(data)

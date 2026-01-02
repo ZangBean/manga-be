@@ -2,6 +2,7 @@ import Chapter from '../models/chapterModel.js'
 import ChapterImage from '../models/imageModel.js'
 import Manga from '../models/mangaModel.js'
 import { uploadChapterImagesToR2 } from './r2UploadService.js'
+import AppError from '../utils/AppError.js'
 
 export const createChapter = async ({
   mangaId,
