@@ -1,4 +1,5 @@
 import mongoose from 'mongoose'
+import { MANGA_STATUS } from '../constants/index.js'
 
 const mangaSchema = new mongoose.Schema(
   {
@@ -9,8 +10,8 @@ const mangaSchema = new mongoose.Schema(
     likeCount: { type: Number, default: 0 },
     status: {
       type: String,
-      enum: ['ongoing', 'completed', 'hiatus'],
-      default: 'ongoing',
+      enum: Object.values(MANGA_STATUS),
+      default: MANGA_STATUS.ONGOING,
     },
     releaseDate: { type: Date },
     author: { type: String, maxlength: 255, trim: true },
@@ -31,6 +32,8 @@ const mangaSchema = new mongoose.Schema(
 )
 
 mangaSchema.index({ title: 'text', author: 1 })
+mangaSchema.index({ viewCount: -1 })
+mangaSchema.index({ createdAt: -1 })
 
 const Manga = mongoose.model('Manga', mangaSchema)
 export default Manga
