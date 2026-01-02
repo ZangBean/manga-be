@@ -3,6 +3,72 @@ import Chapter from '../models/chapterModel.js'
 import Image from '../models/imageModel.js'
 import { uploadMangaCoverToR2, deleteImagesFromR2 } from './r2UploadService.js'
 
+const homeMangaPipeline = () => [
+  {
+    $lookup: {
+      from: 'chapters',
+      localField: '_id',
+      foreignField: 'mangaId',
+      as: 'chapters',
+    },
+  },
+  {
+    $lookup: {
+      from: 'mangagenres',
+      localField: '_id',
+      foreignField: 'mangaId',
+      as: 'mangaGenres',
+    },
+  },
+  {
+    $lookup: {
+      from: 'genres',
+      localField: 'mangaGenres.genreId',
+      foreignField: '_id',
+      as: 'genres',
+    },
+  },
+  {
+    $lookup: {
+      from: 'comments',
+      localField: '_id',
+      foreignField: 'mangaId',
+      as: 'comments',
+    },
+  },
+  {
+    $addFields: {
+      chapterCount: { $size: '$chapters' },
+      latestChapterDate: { $max: '$chapters.createdAt' },
+      genres: {
+        $map: {
+          input: '$genres',
+          as: 'genre',
+          in: '$$genre.name',
+        },
+      },
+      comments: { $size: '$comments' },
+    },
+  },
+  {
+    $project: {
+      title: 1,
+      coverImageUrl: 1,
+      viewCount: 1,
+      chapterCount: 1,
+      latestChapterDate: 1,
+      description: 1,
+      author: 1,
+      totalChapters: 1,
+      translationGroup: 1,
+      year: { $year: '$releaseDate' },
+      rating: '$likeCount',
+      genres: 1,
+      comments: 1,
+    },
+  },
+]
+
 const baseMangaPipeline = () => [
   {
     $lookup: {
@@ -13,45 +79,59 @@ const baseMangaPipeline = () => [
     },
   },
   {
-    $addFields: {
-      chapterCount: { $size: '$chapters' },
-      latestChapterDate: { $max: '$chapters.createdAt' },
-    },
-  },
-  {
     $lookup: {
       from: 'mangagenres',
       localField: '_id',
       foreignField: 'mangaId',
-      as: 'genreLinks',
+      as: 'mangaGenres',
     },
   },
   {
     $lookup: {
       from: 'genres',
-      localField: 'genreLinks.genreId',
+      localField: 'mangaGenres.genreId',
       foreignField: '_id',
       as: 'genres',
     },
   },
   {
-    $project: {
-      title: 1,
-      coverImageUrl: 1,
-      description: 1,
-      viewCount: 1,
-      author: 1,
-      translationGroup: 1,
-      status: 1,
-      createdAt: 1,
-      updatedAt: 1,
-      chapterCount: 1,
-      latestChapterDate: 1,
-      genres: '$genres.name',
-      uploaderId: 1, // giữ lại để kiểm tra quyền
+    $lookup: {
+      from: 'comments',
+      localField: '_id',
+      foreignField: 'mangaId',
+      as: 'comments',
+    },
+  },
+  {
+    $addFields: {
+      chapterCount: { $size: '$chapters' },
+      latestChapterDate: { $max: '$chapters.createdAt' },
+      genres: {
+        $map: {
+          input: '$genres',
+          as: 'genre',
+          in: '$$genre.name',
+        },
+      },
+      comments: { $size: '$comments' },
     },
   },
 ]
+
+export const getHomeTopViews = (limit = 10) =>
+  Manga.aggregate([
+    ...homeMangaPipeline(),
+    { $sort: { viewCount: -1 } },
+    { $limit: Number(limit) },
+  ])
+
+export const getHomeLatestUpdated = (limit = 10) =>
+  Manga.aggregate([
+    ...homeMangaPipeline(),
+    { $match: { chapterCount: { $gt: 0 } } },
+    { $sort: { latestChapterDate: -1 } },
+    { $limit: Number(limit) },
+  ])
 
 // ── QUERY ──
 export const getAllMangas = () =>
