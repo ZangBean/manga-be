@@ -7,7 +7,13 @@ export const MANGA_STATUS = {
 export const USER_ROLES = {
   ADMIN: 'admin',
   UPLOADER: 'uploader',
-  READER: 'reader',
+  USER: 'user',
+}
+
+export const ROLE_HIERARCHY = {
+  admin: ['user', 'uploader', 'admin'],
+  uploader: ['user', 'uploader'],
+  user: ['user'],
 }
 
 export const HTTP_STATUS = {

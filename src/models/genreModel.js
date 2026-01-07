@@ -10,13 +10,6 @@ const genreSchema = new mongoose.Schema(
       trim: true,
     },
     description: { type: String },
-    slug: {
-      type: String,
-      required: true,
-      unique: true,
-      lowercase: true,
-      trim: true,
-    },
   },
   { timestamps: true }
 )

@@ -4,7 +4,6 @@ import upload from '../middlewares/upload.js'
 import validateRequest from '../middlewares/validateRequest.js'
 
 import {
-  getHomeData,
   getAllMangas,
   getMangaById,
   getTopViews,
@@ -17,7 +16,6 @@ import {
   getRandomMangas,
 } from '../controllers/mangaController.js'
 
-import { createChapter } from '../controllers/chapterController.js'
 import {
   createMangaValidator,
   updateMangaValidator,
@@ -25,28 +23,22 @@ import {
 
 const router = express.Router()
 
-router.get('/home', getHomeData)
 router.get('/top-views', getTopViews)
 router.get('/latest', getLatestUpdatedMangas)
 router.get('/random', getRandomMangas)
 router.get('/paginated', getAllMangasPaginated)
 router.get('/', getAllMangas)
 router.get('/my', auth, getMyMangas)
-router.get('/:id', getMangaById)
 
 router.post(
   '/',
   auth,
-  validateRequest(createMangaValidator),
   upload.single('cover'),
+  validateRequest(createMangaValidator),
   createManga
 )
-router.post(
-  '/:mangaId/chapters',
-  auth,
-  upload.array('pages', 100),
-  createChapter
-)
+
+router.get('/:id', getMangaById)
 
 router.put(
   '/:id',
