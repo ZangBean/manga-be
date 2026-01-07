@@ -17,7 +17,6 @@ import {
   getRandomMangas,
 } from '../controllers/mangaController.js'
 
-import { createChapter } from '../controllers/chapterController.js'
 import {
   createMangaValidator,
   updateMangaValidator,
@@ -32,7 +31,6 @@ router.get('/random', getRandomMangas)
 router.get('/paginated', getAllMangasPaginated)
 router.get('/', getAllMangas)
 router.get('/my', auth, getMyMangas)
-router.get('/:id', getMangaById)
 
 router.post(
   '/',
@@ -41,12 +39,8 @@ router.post(
   upload.single('cover'),
   createManga
 )
-router.post(
-  '/:mangaId/chapters',
-  auth,
-  upload.array('pages', 100),
-  createChapter
-)
+
+router.get('/:id', getMangaById)
 
 router.put(
   '/:id',
