@@ -6,8 +6,6 @@ import {
   getRandomMangas as getRandomMangasService,
   getAllMangasPaginated as getAllMangasPaginatedService,
   getMangasByUploader as getMangasByUploaderService,
-  getHomeTopViews,
-  getHomeLatestUpdated,
   createMangaService,
   updateMangaService,
   deleteMangaService,
@@ -51,11 +49,11 @@ export const getTopViews = async (req, res, next) => {
     next(err)
   }
 }
-
 export const getLatestUpdatedMangas = async (req, res, next) => {
   try {
     const limit = Number(req.query.limit) || 10
-    const mangas = await getLatestUpdatedMangasService(limit)
+    const type = req.query.type
+    const mangas = await getLatestUpdatedMangasService(limit, type)
     ok(res, mangas)
   } catch (err) {
     next(err)
@@ -90,25 +88,6 @@ export const getMyMangas = async (req, res, next) => {
   try {
     const mangas = await getMangasByUploaderService(req.user.id)
     ok(res, mangas)
-  } catch (err) {
-    next(err)
-  }
-}
-
-export const getHomeData = async (req, res, next) => {
-  try {
-    const [top, latest] = await Promise.all([
-      getHomeTopViews(10),
-      getHomeLatestUpdated(10),
-    ])
-
-    res.json({
-      success: true,
-      data: {
-        top,
-        latest,
-      },
-    })
   } catch (err) {
     next(err)
   }

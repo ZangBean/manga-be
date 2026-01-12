@@ -21,6 +21,11 @@ const mangaSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    type: {
+      type: String,
+      enum: ['manga', 'manhua', 'manhwa', 'truyenvn'],
+      default: 'manga',
+    },
     totalChapters: {
       type: Number,
       default: 0,

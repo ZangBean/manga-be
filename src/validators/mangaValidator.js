@@ -6,16 +6,23 @@ const baseFields = {
   coverImageUrl: Joi.string().uri().max(255).allow('', null),
   viewCount: Joi.number().integer().min(0),
   likeCount: Joi.number().integer().min(0),
+
+  type: Joi.string()
+    .valid('manga', 'manhua', 'manhwa', 'truyenvn')
+    .default('manga'),
+
   status: Joi.string().valid('ongoing', 'completed', 'hiatus'),
   releaseDate: Joi.date(),
   author: Joi.string().max(255).allow('', null),
   translationGroup: Joi.string().max(255).allow('', null),
+  genreIds: Joi.array().items(Joi.string().hex().length(24)).default([]),
 }
 
 export const createMangaValidator = (data) =>
   Joi.object({
     ...baseFields,
     title: baseFields.title.required(),
+    type: baseFields.type.required(),
   }).validate(data)
 
 export const updateMangaValidator = (data) =>
