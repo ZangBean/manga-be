@@ -1,124 +1,15 @@
+import mongoose from 'mongoose'
 import Manga from '../models/mangaModel.js'
 import Chapter from '../models/chapterModel.js'
 import Image from '../models/imageModel.js'
 import MangaGenre from '../models/mangaGenreModel.js'
 import { uploadMangaCoverToR2, deleteImagesFromR2 } from './r2UploadService.js'
+import {
+  homeMangaPipeline,
+  baseMangaPipeline,
+} from './pipelines/mangaPipelines.js'
 
-const homeMangaPipeline = () => [
-  {
-    $lookup: {
-      from: 'chapters',
-      localField: '_id',
-      foreignField: 'mangaId',
-      as: 'chapters',
-    },
-  },
-  {
-    $lookup: {
-      from: 'mangagenres',
-      localField: '_id',
-      foreignField: 'mangaId',
-      as: 'mangaGenres',
-    },
-  },
-  {
-    $lookup: {
-      from: 'genres',
-      localField: 'mangaGenres.genreId',
-      foreignField: '_id',
-      as: 'genres',
-    },
-  },
-  {
-    $lookup: {
-      from: 'comments',
-      localField: '_id',
-      foreignField: 'mangaId',
-      as: 'comments',
-    },
-  },
-  {
-    $addFields: {
-      chapterCount: { $size: '$chapters' },
-      latestChapterDate: { $max: '$chapters.createdAt' },
-      genres: {
-        $map: {
-          input: '$genres',
-          as: 'genre',
-          in: '$$genre.name',
-        },
-      },
-      comments: { $size: '$comments' },
-    },
-  },
-  {
-    $project: {
-      title: 1,
-      coverImageUrl: 1,
-      viewCount: 1,
-      chapterCount: 1,
-      latestChapterDate: 1,
-      description: 1,
-      author: 1,
-      totalChapters: 1,
-      translationGroup: 1,
-      year: { $year: '$releaseDate' },
-      rating: '$likeCount',
-      genres: 1,
-      comments: 1,
-    },
-  },
-]
-
-const baseMangaPipeline = () => [
-  {
-    $lookup: {
-      from: 'chapters',
-      localField: '_id',
-      foreignField: 'mangaId',
-      as: 'chapters',
-    },
-  },
-  {
-    $lookup: {
-      from: 'mangagenres',
-      localField: '_id',
-      foreignField: 'mangaId',
-      as: 'mangaGenres',
-    },
-  },
-  {
-    $lookup: {
-      from: 'genres',
-      localField: 'mangaGenres.genreId',
-      foreignField: '_id',
-      as: 'genres',
-    },
-  },
-  {
-    $lookup: {
-      from: 'comments',
-      localField: '_id',
-      foreignField: 'mangaId',
-      as: 'comments',
-    },
-  },
-  {
-    $addFields: {
-      chapterCount: { $size: '$chapters' },
-      latestChapterDate: { $max: '$chapters.createdAt' },
-      genres: {
-        $map: {
-          input: '$genres',
-          as: 'genre',
-          in: '$$genre.name',
-        },
-      },
-      comments: { $size: '$comments' },
-    },
-  },
-]
-
+// ── HOME ──
 export const getHomeTopViews = (limit = 10) =>
   Manga.aggregate([
     ...homeMangaPipeline(),
@@ -143,22 +34,16 @@ export const getLatestUpdatedMangas = async (limit = 10, type = null) => {
 
   if (type) {
     let typeFilter
-
     if (typeof type === 'string') {
       const types = type
         .split(',')
         .map((t) => t.trim())
         .filter(Boolean)
       typeFilter = types.length > 1 ? { $in: types } : types[0]
-    } else if (Array.isArray(type)) {
-      typeFilter = { $in: type }
-    } else {
-      typeFilter = type
-    }
+    } else if (Array.isArray(type)) typeFilter = { $in: type }
+    else typeFilter = type
 
-    pipeline.unshift({
-      $match: { type: typeFilter },
-    })
+    pipeline.unshift({ $match: { type: typeFilter } })
   }
 
   pipeline.push(
@@ -196,12 +81,7 @@ export const getAllMangasPaginated = async (page = 1, limit = 20) => {
 
   return {
     mangas: result.mangas,
-    pagination: {
-      page: p,
-      limit: l,
-      total,
-      totalPages: Math.ceil(total / l),
-    },
+    pagination: { page: p, limit: l, total, totalPages: Math.ceil(total / l) },
   }
 }
 
@@ -218,44 +98,43 @@ export const getMangaById = async (id) => {
   const mangaGenres = await MangaGenre.find({ mangaId: id })
     .select('genreId')
     .lean()
-
-  return {
-    ...manga,
-    genreIds: mangaGenres.map((g) => g.genreId),
-  }
+  return { ...manga, genreIds: mangaGenres.map((g) => g.genreId) }
 }
 
 export const getMangasByUploader = (uploaderId) =>
   Manga.find({ uploaderId }).sort({ createdAt: -1 }).lean()
 
+// ── RANDOM THEO THỂ LOẠI ──
+export const getRandomMangasByGenres = async (genreIds = [], limit = 5) => {
+  if (!genreIds.length) return []
+  const objectIds = genreIds.map((id) => new mongoose.Types.ObjectId(id))
+  return Manga.aggregate([
+    ...baseMangaPipeline(),
+    { $match: { 'mangaGenres.genreId': { $in: objectIds } } },
+    { $sample: { size: limit } },
+  ])
+}
+
 // ── MUTATION ──
 export const createMangaService = async (mangaData, file = null) => {
   const { genreIds = [], ...mangaInfo } = mangaData
-
-  // 1. Tạo manga
   const newManga = await Manga.create(mangaInfo)
 
-  // 2. Upload cover
   if (file) {
     const { url, key } = await uploadMangaCoverToR2(
       file,
       newManga._id.toString()
     )
-
     await Manga.findByIdAndUpdate(newManga._id, {
       coverImageUrl: url,
       coverImageKey: key,
     })
   }
 
-  // 3. Lưu bảng phụ MangaGenre
-  if (Array.isArray(genreIds) && genreIds.length > 0) {
-    const docs = genreIds.map((genreId) => ({
-      mangaId: newManga._id,
-      genreId,
-    }))
-
-    await MangaGenre.insertMany(docs)
+  if (Array.isArray(genreIds) && genreIds.length) {
+    await MangaGenre.insertMany(
+      genreIds.map((genreId) => ({ mangaId: newManga._id, genreId }))
+    )
   }
 
   return getMangaById(newManga._id)
@@ -268,39 +147,27 @@ export const updateMangaService = async (
   userId
 ) => {
   const { genreIds, ...mangaInfo } = updateData
-
   const manga = await Manga.findById(mangaId).lean()
   if (!manga) throw new Error('Manga không tồn tại')
   if (manga.uploaderId?.toString() !== userId)
     throw new Error('Bạn không có quyền cập nhật manga này')
 
-  // update manga info
   await Manga.findByIdAndUpdate(mangaId, mangaInfo)
 
-  // update cover
   if (file) {
     const { url, key } = await uploadMangaCoverToR2(file, mangaId)
-
-    if (manga.coverImageKey) {
-      await deleteImagesFromR2([manga.coverImageKey])
-    }
-
+    if (manga.coverImageKey) await deleteImagesFromR2([manga.coverImageKey])
     await Manga.findByIdAndUpdate(mangaId, {
       coverImageUrl: url,
       coverImageKey: key,
     })
   }
 
-  // UPDATE MANY–MANY
   if (Array.isArray(genreIds)) {
     await MangaGenre.deleteMany({ mangaId })
-
-    if (genreIds.length > 0) {
+    if (genreIds.length) {
       await MangaGenre.insertMany(
-        genreIds.map((genreId) => ({
-          mangaId,
-          genreId,
-        }))
+        genreIds.map((genreId) => ({ mangaId, genreId }))
       )
     }
   }
@@ -310,41 +177,30 @@ export const updateMangaService = async (
 
 export const deleteMangaService = async (mangaId, userId) => {
   const manga = await Manga.findById(mangaId).lean()
-  if (!manga) {
-    throw new Error('Manga không tồn tại')
-  }
-
-  if (manga.uploaderId?.toString() !== userId) {
+  if (!manga) throw new Error('Manga không tồn tại')
+  if (manga.uploaderId?.toString() !== userId)
     throw new Error('Bạn không có quyền xóa manga này')
-  }
+
   await MangaGenre.deleteMany({ mangaId })
   const chapters = await Chapter.find({ mangaId }).select('_id').lean()
   const chapterIds = chapters.map((c) => c._id)
 
   let allImageKeys = []
-
-  if (chapterIds.length > 0) {
+  if (chapterIds.length) {
     const images = await Image.find({ chapterId: { $in: chapterIds } })
       .select('key')
       .lean()
     allImageKeys = images.map((img) => img.key).filter(Boolean)
   }
+  if (manga.coverImageKey) allImageKeys.push(manga.coverImageKey)
+  if (allImageKeys.length) await deleteImagesFromR2(allImageKeys)
 
-  if (manga.coverImageKey) {
-    allImageKeys.push(manga.coverImageKey)
-  }
-
-  if (allImageKeys.length > 0) {
-    await deleteImagesFromR2(allImageKeys)
-  }
-
-  if (chapterIds.length > 0) {
+  if (chapterIds.length) {
     await Image.deleteMany({ chapterId: { $in: chapterIds } })
     await Chapter.deleteMany({ mangaId })
   }
 
   await Manga.findByIdAndDelete(mangaId)
-
   return {
     deletedChapters: chapters.length,
     deletedImages: allImageKeys.length,

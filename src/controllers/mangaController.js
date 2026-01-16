@@ -9,6 +9,7 @@ import {
   createMangaService,
   updateMangaService,
   deleteMangaService,
+  getRandomMangasByGenres as getRandomMangasByGenresService,
 } from '../services/mangaService.js'
 
 const ok = (res, data, extra = {}) =>
@@ -64,6 +65,23 @@ export const getRandomMangas = async (req, res, next) => {
   try {
     const limit = Number(req.query.limit) || 5
     const mangas = await getRandomMangasService(limit)
+    ok(res, mangas)
+  } catch (err) {
+    next(err)
+  }
+}
+
+export const getRandomMangasByGenres = async (req, res, next) => {
+  try {
+    const limit = Number(req.query.limit) || 5
+    const genreIds = (req.query.genreIds || '')
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean)
+    if (!genreIds.length)
+      return res.status(400).json({ success: false, message: 'Thiếu genreIds' })
+
+    const mangas = await getRandomMangasByGenresService(genreIds, limit)
     ok(res, mangas)
   } catch (err) {
     next(err)
