@@ -14,6 +14,7 @@ import {
   getLatestUpdatedMangas,
   getAllMangasPaginated,
   getRandomMangas,
+  getRandomMangasByGenres,
 } from '../controllers/mangaController.js'
 
 import {
@@ -26,6 +27,7 @@ const router = express.Router()
 router.get('/top-views', getTopViews)
 router.get('/latest', getLatestUpdatedMangas)
 router.get('/random', getRandomMangas)
+router.get('/random-by-genres', getRandomMangasByGenres)
 router.get('/paginated', getAllMangasPaginated)
 router.get('/', getAllMangas)
 router.get('/my', auth, getMyMangas)
