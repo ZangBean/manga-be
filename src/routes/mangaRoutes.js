@@ -5,6 +5,7 @@ import validateRequest from '../middlewares/validateRequest.js'
 
 import {
   getAllMangas,
+  getMangaBySlug,
   getMangaById,
   getTopViews,
   createManga,
@@ -31,6 +32,7 @@ router.get('/random-by-genres', getRandomMangasByGenres)
 router.get('/paginated', getAllMangasPaginated)
 router.get('/', getAllMangas)
 router.get('/my', auth, getMyMangas)
+router.get('/info/:slug', getMangaBySlug)
 
 router.post(
   '/',

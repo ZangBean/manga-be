@@ -2,6 +2,7 @@ import Joi from 'joi'
 
 const baseFields = {
   title: Joi.string().max(255),
+  altTitles: Joi.array().items(Joi.string().trim().max(255)).default([]),
   description: Joi.string().allow('', null),
   coverImageUrl: Joi.string().uri().max(255).allow('', null),
   viewCount: Joi.number().integer().min(0),

@@ -1,5 +1,6 @@
 import {
   getAllMangas as getAllMangasService,
+  getMangaBySlug as getMangaBySlugService,
   getMangaById as getMangaByIdService,
   getTopViews as getTopViewsService,
   getLatestUpdatedMangas as getLatestUpdatedMangasService,
@@ -26,6 +27,16 @@ export const getAllMangas = async (req, res, next) => {
   try {
     const mangas = await getAllMangasService()
     ok(res, mangas)
+  } catch (err) {
+    next(err)
+  }
+}
+
+export const getMangaBySlug = async (req, res, next) => {
+  try {
+    const manga = await getMangaBySlugService(req.params.slug)
+    if (!manga) return notFound(res, 'Manga not found')
+    ok(res, manga)
   } catch (err) {
     next(err)
   }
@@ -94,7 +105,7 @@ export const getAllMangasPaginated = async (req, res, next) => {
     const limit = Number(req.query.limit) || 20
     const { mangas, pagination } = await getAllMangasPaginatedService(
       page,
-      limit
+      limit,
     )
     ok(res, mangas, { pagination })
   } catch (err) {
@@ -136,7 +147,7 @@ export const updateManga = async (req, res, next) => {
       mangaId,
       updateData,
       req.file,
-      req.user.id
+      req.user.id,
     )
 
     ok(res, updatedManga)

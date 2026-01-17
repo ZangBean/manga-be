@@ -42,12 +42,15 @@ export const homeMangaPipeline = () => [
   {
     $project: {
       title: 1,
+      altTitles: 1,
+      slug: 1,
       coverImageUrl: 1,
       viewCount: 1,
       chapterCount: 1,
       latestChapterDate: 1,
       description: 1,
       author: 1,
+      status: 1,
       totalChapters: 1,
       translationGroup: 1,
       year: { $year: '$releaseDate' },
