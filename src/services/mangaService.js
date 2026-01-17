@@ -49,7 +49,7 @@ export const getLatestUpdatedMangas = async (limit = 10, type = null) => {
   pipeline.push(
     { $match: { chapterCount: { $gt: 0 } } },
     { $sort: { latestChapterDate: -1 } },
-    { $limit: Number(limit) }
+    { $limit: Number(limit) },
   )
 
   return Manga.aggregate(pipeline)
@@ -101,6 +101,25 @@ export const getMangaById = async (id) => {
   return { ...manga, genreIds: mangaGenres.map((g) => g.genreId) }
 }
 
+export const getMangaBySlug = async (slug) => {
+  const [result] = await Manga.aggregate([
+    { $match: { slug: slug } },
+    ...baseMangaPipeline(),
+    { $limit: 1 },
+  ])
+
+  if (!result) return null
+
+  const mangaGenres = await MangaGenre.find({ mangaId: result._id })
+    .select('genreId')
+    .lean()
+
+  return {
+    ...result,
+    genreIds: mangaGenres.map((g) => g.genreId.toString()),
+  }
+}
+
 export const getMangasByUploader = (uploaderId) =>
   Manga.find({ uploaderId }).sort({ createdAt: -1 }).lean()
 
@@ -123,7 +142,7 @@ export const createMangaService = async (mangaData, file = null) => {
   if (file) {
     const { url, key } = await uploadMangaCoverToR2(
       file,
-      newManga._id.toString()
+      newManga._id.toString(),
     )
     await Manga.findByIdAndUpdate(newManga._id, {
       coverImageUrl: url,
@@ -133,7 +152,7 @@ export const createMangaService = async (mangaData, file = null) => {
 
   if (Array.isArray(genreIds) && genreIds.length) {
     await MangaGenre.insertMany(
-      genreIds.map((genreId) => ({ mangaId: newManga._id, genreId }))
+      genreIds.map((genreId) => ({ mangaId: newManga._id, genreId })),
     )
   }
 
@@ -144,30 +163,32 @@ export const updateMangaService = async (
   mangaId,
   updateData,
   file = null,
-  userId
+  userId,
 ) => {
   const { genreIds, ...mangaInfo } = updateData
-  const manga = await Manga.findById(mangaId).lean()
+
+  const manga = await Manga.findById(mangaId)
   if (!manga) throw new Error('Manga không tồn tại')
   if (manga.uploaderId?.toString() !== userId)
     throw new Error('Bạn không có quyền cập nhật manga này')
 
-  await Manga.findByIdAndUpdate(mangaId, mangaInfo)
+  Object.assign(manga, mangaInfo)
+  await manga.save()
 
   if (file) {
     const { url, key } = await uploadMangaCoverToR2(file, mangaId)
     if (manga.coverImageKey) await deleteImagesFromR2([manga.coverImageKey])
-    await Manga.findByIdAndUpdate(mangaId, {
-      coverImageUrl: url,
-      coverImageKey: key,
-    })
+
+    manga.coverImageUrl = url
+    manga.coverImageKey = key
+    await manga.save()
   }
 
   if (Array.isArray(genreIds)) {
     await MangaGenre.deleteMany({ mangaId })
     if (genreIds.length) {
       await MangaGenre.insertMany(
-        genreIds.map((genreId) => ({ mangaId, genreId }))
+        genreIds.map((genreId) => ({ mangaId, genreId })),
       )
     }
   }
